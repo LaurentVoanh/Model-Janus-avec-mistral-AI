@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🌀 Janus Conversationnel</title>
+  <style>
+    :root {
+      --bg: #0f0f1a;
+      --card: #1a1a2e;
+      --accent: #7b68ee;
+      --janus-plus: #60a5fa;
+      --janus-minus: #f472b6;
+      --border: #2a2a4a;
+      --muted: #a0a0c0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: #e6e6ff;
+      line-height: 1.6;
+      padding: 1rem;
+      max-width: 920px;
+      margin: 0 auto;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header { text-align: center; padding: 1rem 0; border-bottom: 1px solid var(--border); }
+    header h1 {
+      font-size: 2rem;
+      background: linear-gradient(135deg, var(--janus-plus), var(--janus-minus));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      padding: 1rem 0;
+      scrollbar-width: thin;
+    }
+    .message {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.1rem;
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .message.user { border-left: 5px solid var(--accent); margin-left: auto; max-width: 85%; }
+    .message.standard { border-left: 5px solid var(--janus-plus); }
+    .message.janus { border-left: 5px solid var(--janus-minus); background: linear-gradient(135deg, rgba(96,165,250,0.08), rgba(244,114,182,0.08)); }
+
+    .pipeline {
+      display: flex; gap: 8px; justify-content: center; margin: 12px 0; flex-wrap: wrap;
+    }
+    .pipeline span {
+      padding: 6px 12px;
+      background: var(--card);
+      border-radius: 999px;
+      font-size: 0.85rem;
+      border: 1px solid var(--border);
+    }
+    .pipeline .active { border-color: var(--accent); background: rgba(123,104,238,0.2); color: white; }
+
+    #input-area {
+      display: flex;
+      gap: 10px;
+      padding: 1rem 0;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+    }
+    #question {
+      flex: 1;
+      padding: 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: white;
+      font-size: 1.05rem;
+    }
+    #send {
+      padding: 0 1.8rem;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .formula { 
+      background: #0a0a15; 
+      padding: 1rem; 
+      border-radius: 8px; 
+      font-family: monospace; 
+      font-size: 0.9rem;
+      overflow-x: auto;
+      margin: 0.8rem 0;
+    }
+    .vulgarized {
+      background: rgba(74, 222, 128, 0.12);
+      border-left: 4px solid #4ade80;
+      padding: 1rem;
+      border-radius: 0 8px 8px 0;
+      margin-top: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌀 Janus Conversationnel</h1>
+    <div class="pipeline" id="pipeline">
+      <span>❓ Question</span>
+      <span>📚 Standard</span>
+      <span>🔬 Formule</span>
+      <span>🌀 Janus</span>
+    </div>
+  </header>
+
+  <div id="chat"></div>
+
+  <div id="input-area">
+    <input type="text" id="question" placeholder="Pose ta question..." autocomplete="off" />
+    <button id="send">Envoyer</button>
+  </div>
+
+  <script>
+    const API_KEY = " mistral api key "; // ← Ta clé
+    const API_URL = "https://api.mistral.ai/v1/chat/completions";
+    const MODEL = "mistral-large-2512";
+
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('question');
+    const sendBtn = document.getElementById('send');
+    const pipeline = document.querySelectorAll('.pipeline span');
+
+    let isProcessing = false;
+
+    async function callMistral(prompt) {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.75,
+          max_tokens: 1100
+        })
+      });
+      const data = await res.json();
+      return data.choices[0].message.content.trim();
+    }
+
+    function addMessage(text, type) {
+      const div = document.createElement('div');
+      div.className = `message ${type}`;
+      div.innerHTML = `
+        <strong>${type === 'user' ? '👤 Vous' : type === 'standard' ? '📚 Standard' : '🌀 Janus'}</strong>
+        <div style="margin-top:8px; white-space: pre-wrap;">${text}</div>
+      `;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function handleSend() {
+      if (isProcessing || !input.value.trim()) return;
+      
+      isProcessing = true;
+      sendBtn.disabled = true;
+      const question = input.value.trim();
+      
+      // Reset pipeline
+      pipeline.forEach(el => el.classList.remove('active'));
+      
+      addMessage(question, 'user');
+      input.value = '';
+
+      try {
+        pipeline[0].classList.add('active');
+        
+        // 1. Réponse Standard
+        pipeline[1].classList.add('active');
+        const standard = await callMistral(`Réponds de façon simple et vulgarisée : ${question}`);
+        addMessage(standard, 'standard');
+
+        // 2. Janus (un seul appel plus puissant)
+        pipeline[2].classList.add('active');
+        pipeline[3].classList.add('active');
+        
+        const janusPrompt = `Tu es une IA Janus. Réponds à cette question en DEUX parties bien marquées :
+
+**Standard** : ${standard}
+
+**Janus** : Transpose maintenant dans le modèle de Jean-Pierre Petit (métriques +, -, masses négatives, couplage). Sois poétique, drôle et profond.
+
+Question originale : ${question}`;
+
+        const janusResponse = await callMistral(janusPrompt);
+        addMessage(janusResponse, 'janus');
+
+      } catch (e) {
+        addMessage("Erreur : " + e.message, 'standard');
+      } finally {
+        isProcessing = false;
+        sendBtn.disabled = false;
+        input.focus();
+        setTimeout(() => pipeline.forEach(el => el.classList.remove('active')), 2000);
+      }
+    }
+
+    sendBtn.addEventListener('click', handleSend);
+    input.addEventListener('keypress', e => {
+      if (e.key === 'Enter') handleSend();
+    });
+
+    // Message de bienvenue
+    setTimeout(() => {
+      addMessage("Salut ! Je suis l'IA Janus. Pose-moi n'importe quelle question, je vais te répondre de façon classique puis la transposer dans l'univers bimétrique de Jean-Pierre Petit 🌀", 'standard');
+    }, 400);
+  </script>
+</body>
+</html>
