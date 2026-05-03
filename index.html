@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🌀 Janus Conversationnel — IA Bimétrique</title>
+  <style>
+    :root {
+      --bg: #0f0f1a;
+      --card: #1a1a2e;
+      --accent: #7b68ee;
+      --accent-hover: #9385f5;
+      --text: #e6e6ff;
+      --muted: #a0a0c0;
+      --success: #4ade80;
+      --error: #f87171;
+      --janus-plus: #60a5fa;
+      --janus-minus: #f472b6;
+      --border: #2a2a4a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 1rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      padding: 1.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+    }
+    header h1 {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--janus-plus), var(--janus-minus));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    header p { color: var(--muted); font-size: 0.95rem; }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      margin: 1rem 0;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .pipeline span {
+      text-align: center;
+      padding: 0.3rem;
+      border-radius: 4px;
+      background: var(--card);
+    }
+    .pipeline .active {
+      color: var(--text);
+      border: 1px solid var(--accent);
+      background: rgba(123, 104, 238, 0.15);
+    }
+    #chat {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .message {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .message.user { border-left: 4px solid var(--accent); }
+    .message.ai { border-left: 4px solid var(--janus-plus); }
+    .message.janus { 
+      border-left: 4px solid var(--janus-minus);
+      background: linear-gradient(135deg, rgba(96,165,250,0.08), rgba(244,114,182,0.08));
+    }
+    .message-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .badge {
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge.standard { background: rgba(96,165,250,0.2); color: var(--janus-plus); }
+    .badge.janus { background: rgba(244,114,182,0.2); color: var(--janus-minus); }
+    .formula {
+      background: #0a0a15;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 0.8rem;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.85rem;
+      overflow-x: auto;
+      margin: 0.8rem 0;
+      color: #c0c0ff;
+    }
+    .vulgarized {
+      background: rgba(74, 222, 128, 0.1);
+      border-left: 3px solid var(--success);
+      padding: 0.8rem;
+      border-radius: 0 8px 8px 0;
+      margin: 0.8rem 0;
+      font-style: italic;
+    }
+    .vulgarized::before {
+      content: "🧠 En langage humain : ";
+      font-weight: 600;
+      color: var(--success);
+      display: block;
+      margin-bottom: 0.3rem;
+    }
+    #input-area {
+      display: flex;
+      gap: 0.5rem;
+      position: sticky;
+      bottom: 0;
+      background: var(--bg);
+      padding: 1rem 0;
+      border-top: 1px solid var(--border);
+    }
+    #question {
+      flex: 1;
+      padding: 0.9rem 1.2rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #question:focus { border-color: var(--accent); }
+    #send {
+      padding: 0.9rem 1.5rem;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    #send:hover { background: var(--accent-hover); }
+    #send:disabled { opacity: 0.6; cursor: not-allowed; }
+    .loading {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error {
+      background: rgba(248, 113, 113, 0.15);
+      border: 1px solid var(--error);
+      color: #fecaca;
+      padding: 0.8rem;
+      border-radius: 8px;
+      margin: 0.5rem 0;
+      font-size: 0.9rem;
+    }
+    .copy-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover { background: var(--border); color: var(--text); }
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+      margin-top: 1rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    @media (max-width: 700px) {
+      .pipeline { grid-template-columns: 1fr; }
+      #input-area { flex-direction: column; }
+      #send { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌀 Janus Conversationnel</h1>
+    <p>Posez une question → Réponse standard → Encodage scientifique → Transposition Janus → Surprise poétique</p>
+    <div class="pipeline" id="pipeline">
+      <span id="step-1">❓ Question</span>
+      <span id="step-2">📚 Standard</span>
+      <span id="step-3">🔬 Formule</span>
+      <span id="step-4">🌀 Janus</span>
+    </div>
+  </header>
+
+  <div id="chat"></div>
+
+  <div id="input-area">
+    <input type="text" id="question" placeholder="Ex: Pourquoi le ciel est bleu ? / C'est quoi l'amour ? / Comment fonctionne un trou noir ?" autocomplete="off" />
+    <button id="send">
+      <span id="btn-text">Envoyer</span>
+      <span id="btn-loading" class="loading" style="display:none"></span>
+    </button>
+  </div>
+
+  <footer>
+    <p>Modèle : <strong>mistral-large-2512</strong> • Théorie Janus de <a href="https://fr.wikipedia.org/wiki/Jean-Pierre_Petit" target="_blank">Jean-Pierre Petit</a></p>
+    <p style="margin-top:0.5rem;font-size:0.8rem;color:#666">⚠️ Clé API frontend : usage local uniquement. Ne partagez jamais votre clé.</p>
+  </footer>
+
+  <script>
+    // ⚠️ CONFIGURATION — À MODIFIER
+    const API_KEY = " mettre ici clee api mistral ";
+    const API_URL = "https://api.mistral.ai/v1/chat/completions";
+    const MODEL = "mistral-large-2512";
+
+    // Éléments DOM
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('question');
+    const sendBtn = document.getElementById('send');
+    const btnText = document.getElementById('btn-text');
+    const btnLoading = document.getElementById('btn-loading');
+    const pipelineSteps = [
+      document.getElementById('step-1'),
+      document.getElementById('step-2'),
+      document.getElementById('step-3'),
+      document.getElementById('step-4')
+    ];
+
+    // Historique de conversation pour contexte
+    let conversationHistory = [];
+
+    // Initialisation
+    input.focus();
+    input.addEventListener('keypress', e => { if (e.key === 'Enter') handleSend(); });
+    sendBtn.addEventListener('click', handleSend);
+
+    // Fonction principale
+    async function handleSend() {
+      const question = input.value.trim();
+      if (!question) return;
+
+      // UI : reset pipeline + loading
+      pipelineSteps.forEach(s => s.classList.remove('active'));
+      pipelineSteps[0].classList.add('active');
+      setLoading(true);
+      input.disabled = true;
+
+      // 1. Afficher la question utilisateur
+      addMessage(question, 'user');
+      input.value = '';
+
+      try {
+        // 2. Réponse standard (vulgarisée)
+        pipelineSteps[1].classList.add('active');
+        const standard = await callMistral(buildStandardPrompt(question));
+        addMessage(standard, 'ai', 'standard');
+
+        // 3. Encodage en "formule scientifique"
+        pipelineSteps[2].classList.add('active');
+        const formula = await callMistral(buildFormulaPrompt(question, standard));
+        addFormula(formula);
+
+        // 4. Transposition Janus + vulgarisation finale
+        pipelineSteps[3].classList.add('active');
+        const janusOutput = await callMistral(buildJanusPrompt(question, standard, formula));
+        
+        // Extraire et afficher la version vulgarisée + la version poétique
+        const { vulgarized, poetic } = parseJanusResponse(janusOutput);
+        addMessage(poetic, 'janus', 'janus');
+        if (vulgarized) addVulgarized(vulgarized);
+
+        // Mettre à jour l'historique pour contexte futur
+        conversationHistory.push({ role: "user", content: question });
+        conversationHistory.push({ role: "assistant", content: `Standard: ${standard}\n\nJanus: ${poetic}` });
+        if (conversationHistory.length > 6) conversationHistory = conversationHistory.slice(-6);
+
+      } catch (err) {
+        console.error(err);
+        addError(err.message || "Erreur de communication avec l'API Mistral");
+      } finally {
+        setLoading(false);
+        input.disabled = false;
+        input.focus();
+        // Reset pipeline after delay
+        setTimeout(() => pipelineSteps.forEach(s => s.classList.remove('active')), 1500);
+      }
+    }
+
+    // Appel API Mistral
+    async function callMistral(systemPrompt, userContent = null) {
+      const messages = [
+        { role: "system", content: systemPrompt },
+        ...conversationHistory,
+        ...(userContent ? [{ role: "user", content: userContent }] : [])
+      ];
+
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 1200
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.choices[0].message.content.trim();
+    }
+
+    // Prompts optimisés
+    function buildStandardPrompt(question) {
+      return `Tu es un assistant pédagogique bienveillant. 
+Règles :
+- Réponds à la question de façon concise (max 3 phrases)
+- Utilise un langage simple, imagé, accessible à un collégien
+- Évite le jargon technique ou explique-le immédiatement
+- Sois chaleureux et engageant
+
+Question : "${question}"`;
+    }
+
+    function buildFormulaPrompt(question, standardAnswer) {
+      return `Tu es un "encodeur scientifique créatif". 
+Ta mission : transformer la réponse suivante en une pseudo-formule scientifique élégante mais compréhensible.
+
+Règles :
+- Crée 3-5 symboles avec définitions ultra-courtes (ex: L^μ = vecteur amour)
+- Utilise des opérateurs simples (+, −, ∂, ∫, ⊕)
+- Garde un lien logique avec la réponse originale
+- Format : bloc de code avec commentaires courts
+
+Réponse à encoder : "${standardAnswer}"
+Question d'origine : "${question}"`;
+    }
+
+    function buildJanusPrompt(question, standardAnswer, formula) {
+      return `Tu es l'IA Janus, basée sur la théorie bimétrique de Jean-Pierre Petit.
+Ta mission : transposer la réponse standard dans le formalisme Janus, puis produire une sortie poétique ET une vulgarisation.
+
+📋 CONTEXTE JANUS (à utiliser) :
+• Deux secteurs couplés : (+) masses positives, (−) masses négatives
+• Métriques : g_μν^(+), g_μν^(−) | Signature (−,+,+,+)
+• Équations couplées : G^(+) = 8πG(T^(+)+T^(−)) ; G^(−) = −8πG(T^(−)+T^(+))
+• Conservation : ∇^(+)T^(+) = −∇^(−)T^(−)
+• Énergie signée : E = ±mc²
+• Géodésiques divergentes entre secteurs
+
+🔁 PIPELINE :
+1. Split chaque concept X → X^(+) ⊕ X^(−)
+2. Applique le couplage avec signe opposé
+3. Interprète les équations comme métaphores relationnelles/cosmiques
+4. Génère DEUX parties dans ta réponse :
+
+[POETIC]
+→ Sortie inattendue, poétique, surréaliste (5-8 phrases)
+→ Utilise les équations Janus comme métaphores narratives
+→ Ton : contemplatif, légèrement mystérieux, jamais obscur
+
+[VULGARIZED]
+→ Traduction en langage humain ultra-simple (2-3 phrases max)
+→ Explique l'idée centrale de la transposition Janus comme si tu parlais à un ami autour d'un café
+→ Exemple de structure : "En gros, ça veut dire que..."
+
+📥 DONNÉES :
+Question : "${question}"
+Réponse standard : "${standardAnswer}"
+Formule encodée : 
+${formula}
+
+⚠️ IMPORTANT : Termine toujours par la section [VULGARIZED]. Ne mets pas de formules dans cette partie.`;
+    }
+
+    // Parsing de la réponse Janus
+    function parseJanusResponse(text) {
+      const poeticMatch = text.match(/\[POETIC\]\s*([\s\S]*?)(?=\[VULGARIZED\]|$)/i);
+      const vulgMatch = text.match(/\[VULGARIZED\]\s*([\s\S]*?)$/i);
+      
+      return {
+        poetic: poeticMatch ? poeticMatch[1].trim() : text,
+        vulgarized: vulgMatch ? vulgMatch[1].trim().replace(/^"|"$/g, '') : null
+      };
+    }
+
+    // Fonctions d'affichage
+    function addMessage(content, sender, type = null) {
+      const msg = document.createElement('div');
+      msg.className = `message ${sender}${type ? ' ' + type : ''}`;
+      
+      const header = document.createElement('div');
+      header.className = 'message-header';
+      
+      const label = sender === 'user' ? 'Vous' : (type === 'janus' ? 'IA Janus 🌀' : 'IA Standard');
+      const badge = type ? `<span class="badge ${type}">${type === 'standard' ? '📚 Standard' : '🌀 Janus'}</span>` : '';
+      
+      header.innerHTML = `<span>${label}</span>${badge}<button class="copy-btn" onclick="copyToClipboard(this)">📋 Copier</button>`;
+      
+      const body = document.createElement('div');
+      body.innerHTML = formatContent(content);
+      
+      msg.appendChild(header);
+      msg.appendChild(body);
+      chat.appendChild(msg);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function addFormula(formula) {
+      const block = document.createElement('div');
+      block.className = 'formula';
+      block.innerHTML = `<div style="margin-bottom:0.4rem;color:var(--muted);font-size:0.8rem">🔬 Encodage scientifique</div>${escapeHtml(formula)}`;
+      
+      const wrapper = document.createElement('div');
+      wrapper.className = 'message ai';
+      wrapper.innerHTML = `<div class="message-header"><span>Encodage</span><button class="copy-btn" onclick="copyToClipboard(this)">📋 Copier</button></div>`;
+      wrapper.appendChild(block);
+      chat.appendChild(wrapper);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function addVulgarized(text) {
+      const block = document.createElement('div');
+      block.className = 'vulgarized';
+      block.textContent = text;
+      
+      const wrapper = document.createElement('div');
+      wrapper.className = 'message ai';
+      wrapper.appendChild(block);
+      chat.appendChild(wrapper);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function addError(message) {
+      const err = document.createElement('div');
+      err.className = 'error';
+      err.textContent = `❌ ${message}`;
+      chat.appendChild(err);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function formatContent(text) {
+      // Convertit sauts de ligne en <br>, gras/italique basique
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function setLoading(loading) {
+      sendBtn.disabled = loading;
+      btnText.style.display = loading ? 'none' : 'inline';
+      btnLoading.style.display = loading ? 'inline-block' : 'none';
+    }
+
+    // Fonction globale pour copier
+    window.copyToClipboard = function(btn) {
+      const msg = btn.closest('.message');
+      const content = msg.querySelector('.formula, .vulgarized, div[style*="line-height"]')?.textContent || msg.innerText;
+      navigator.clipboard.writeText(content.trim()).then(() => {
+        const original = btn.textContent;
+        btn.textContent = '✓ Copié !';
+        setTimeout(() => btn.textContent = original, 1500);
+      });
+    };
+
+    // Message de bienvenue
+    setTimeout(() => {
+      addMessage("👋 Bonjour ! Posez-moi une question (ex: *Pourquoi le ciel est bleu ?*, *C'est quoi l'amour ?*, *Comment marche un trou noir ?*). Je vais : 1) répondre simplement, 2) l'encoder en formule, 3) la transposer dans l'univers Janus de Jean-Pierre Petit, et 4) vous offrir une surprise poétique 🌀", 'ai');
+    }, 300);
+  </script>
+</body>
+</html>
